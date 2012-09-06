@@ -34,22 +34,21 @@
   `(fn [arg-map#]
      (-> arg-map# ~@validators)))
 
+(def config-hadoop-bsa
+  "s3://elasticmapreduce/bootstrap-actions/configure-hadoop")
+
 ;;CONFIG STUFF THAT NEEDS TO GO ELSEWHERE
+;;vec of [bs-action-file [args]]
 (def bootstrap-actions
-  ["s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive"
-   ;;WHAT THE FUCK IS ADD-SWAP??
-   "s3://elasticmapreduce/bootstrap-actions/add-swap --args 2048"
-   "s3://elasticmapreduce/bootstrap-actions/configure-hadoop --args FIXTHIS"
-   "s3://reddconfig/bootstrap-actions/forma_bootstrap_robin.sh"])
-
-;;predefined bs actions
-;;Configure Daemons
-;;Configure Hadoop
-;;Configure Memory-Intensive Workloads
-;;Run If
-;;Shutdown Actions
-
-(def redd-config-path "s3://reddconfig/bootstrap-actions/config_new.xml")
+  [["s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive"
+    []]
+   ["s3://elasticmapreduce/bootstrap-actions/add-swap"
+    [2048]]
+   ["s3://elasticmapreduce/bootstrap-actions/configure-hadoop"
+    ["s3://reddconfig/bootstrap-actions/config_new.xml"]] ;; CONFIG
+   ;; FILE MUST BE FIRST ARG!
+   ["s3://reddconfig/bootstrap-actions/forma_bootstrap_robin.sh"
+    []]])
 
 ;;SENSIBLE DEFAULTS
 (def default-bid-price
@@ -86,17 +85,26 @@
   "Takes in a config map of hadoop base props (config file settings)
   and returns a string of hadoop properties for use by the ruby
   elastic-mapreduce script."
-  [conf-map]
+  [conf-map config-file]
   (->> (map (fn [[k v]]
               (format "-s,%s=%s" (name k) v)) conf-map) 
        (join ",")       
-       (format "\"--core-config-file,%s,%s\"" redd-config-path)))
+       (format "\"--core-config-file,%s,%s\"" config-file)))
 
 (defn scriptify-bs-actions
-  "NEED TO FINISH THIS!"
-  [bs-actions]
-  (apply str (for [bsa bs-actions]
-               (str " --bootstrap action " bsa))))
+  "Generates the bootstrap action options for the elastic-mapreduce
+  script. Takes in bootsrap actions which should be collection of
+  [bsaname [args]], number of mappers, reducers, and number of nodes."
+  [bs-actions map-tasks reduce-tasks size]
+  (apply str
+         (for [[bsa args] bs-actions]
+           (str " --bootstrap-action " bsa
+                (when (not (empty? args))
+                  (str " --args "
+                       (if (= config-hadoop-bsa bsa)
+                         (parse-emr-config (base-props map-tasks reduce-tasks size)
+                                           (first args)) ;;always first?
+                         (apply str (interpose " " (map str args))))))))))
 
 ;;SCRIPT GENERATION
 (defn boot-emr!
@@ -121,24 +129,15 @@
                            (if (nil? on-demand)
                              (str "--bid-price " ;;dflt price
                                   (default-bid-price type)) 
-                             "")                   ;;use on-demand
-                           (str " --bid-price " bid));;use given pr
+                             "")                      ;;use on-demand
+                           (str " --bid-price " bid)) ;;use given pr
                         --enable-debugging
-
-                        ;;REPLACE ALL THIS BS ACTION STUFF
-                        --bootstrap-action 
-                        s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive
-                        
-                        --bootstrap-action
-                        s3://elasticmapreduce/bootstrap-actions/add-swap
-                        --args 2048
-                        
-                        --bootstrap-action
-                        s3://elasticmapreduce/bootstrap-actions/configure-hadoop
-                        --args ~(parse-emr-config (base-props map-tasks reduce-tasks size))
-
-                        --bootstrap-action
-                        s3://reddconfig/bootstrap-actions/forma_bootstrap_robin.sh))))
+                        ;;replace below with bs-actions
+                        ~(when bootstrap-actions
+                           (scriptify-bs-actions bootstrap-actions
+                                                 map-tasks
+                                                 reduce-tasks
+                                                 size))))))
 
 ;;VALIDATORS
 (defn size-valid?
