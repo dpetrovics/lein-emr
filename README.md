@@ -12,18 +12,16 @@ Example use:
 
     $ lein emr --name "namehere" --type "large" --size 10 --bid 0.2
 
-All options (you can see this with 'lein emr help')
-
-Switches         Default      Desc                                  
- --------         -------      ----                                  
- -n, --name       dev          Name of cluster.                      
- -t, --type       high-memory  Type  cluster.                        
- -s, --size                    Size of cluster.                      
- -z, --zone       us-east-1d   Specifies an availability zone.       
- -m, --mappers                 Specifies number of mappers.          
- -r, --reducers                Specifies number of reducers.         
- -b, --bid                     Specifies a bid price.                
- -d, --on-demand               Uses on demand-pricing for all nodes. 
+All options (you can see this with 'lein emr help'):
+                                 
+    -n, --name       dev          Name of cluster.                      
+    -t, --type       high-memory  Type  cluster.                        
+    -s, --size                    Size of cluster.                      
+    -z, --zone       us-east-1d   Specifies an availability zone.       
+    -m, --mappers                 Specifies number of mappers.          
+    -r, --reducers                Specifies number of reducers.         
+    -b, --bid                     Specifies a bid price.                
+    -d, --on-demand               Uses on demand-pricing for all nodes. 
  
  TO DO:
  Describe where to put config file with bootstrap actions!!
@@ -74,7 +72,7 @@ Now run
 
     rvm install 1.8.7
 
-again. If you get a 'make error', see 
+If you get a 'make error', see 
 [this thread](http://stackoverflow.com/questions/11664835/mountain-lion-rvm-install-1-8-7-x11-error).
 
 ## License
