@@ -1,6 +1,7 @@
 # lein-emr
 
-A Leiningen plugin used to generate Amazon Elastic MapReduce jobflows. It is a wrapper of Amazon's elastic-mapreduce
+A Leiningen plugin used to generate Amazon Elastic MapReduce jobflows. It is a wrapper over Amazon's 
+[elastic-mapreduce](http://aws.amazon.com/code/Elastic-MapReduce/2264)
 client. It can get very tedious to write out all the options to their script; this plugin tries to make launching a 
 jobflow extremely easy.
 
