@@ -37,14 +37,21 @@
 ;;CONFIG STUFF THAT NEEDS TO GO ELSEWHERE
 (def bootstrap-actions
   ["s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive"
+   ;;WHAT THE FUCK IS ADD-SWAP??
    "s3://elasticmapreduce/bootstrap-actions/add-swap --args 2048"
    "s3://elasticmapreduce/bootstrap-actions/configure-hadoop --args FIXTHIS"
    "s3://reddconfig/bootstrap-actions/forma_bootstrap_robin.sh"])
 
-(def native-path "/home/hadoop/native")
-(def lib-path "/usr/local/fwtools/usr/lib")
-(def redd-config-path "s3://reddconfig/bootstrap-actions/config.xml")
+;;predefined bs actions
+;;Configure Daemons
+;;Configure Hadoop
+;;Configure Memory-Intensive Workloads
+;;Run If
+;;Shutdown Actions
 
+(def redd-config-path "s3://reddconfig/bootstrap-actions/config_new.xml")
+
+;;SENSIBLE DEFAULTS
 (def default-bid-price
   {"large" 0.32
    "cluster-compute" 1.30
@@ -69,44 +76,27 @@
    (= type "high-memory") "m2.4xlarge"
    (= type "cluster-compute") "cc1.4xlarge"))
 
-;;put this into an XML file in redd-config path, except for the ones
-;;that depend on reduce tasks, map tasks, and node countx
 (defn base-props
   [reduce-tasks map-tasks node-count]
-  {:hdfs-site {:dfs.datanode.max.xcievers 5096
-               :dfs.namenode.handler.count 20
-               :dfs.block.size 134217728
-               :dfs.support.append true}
-   :mapred-site {:io.sort.mb 200
-                 :io.sort.factor 40
-                 :mapred.reduce.parallel.copies 20
-                 :mapred.task.timeout 10000000
-                 :mapred.reduce.tasks (int (* reduce-tasks node-count))
-                 :mapred.tasktracker.map.tasks.maximum map-tasks
-                 :mapred.tasktracker.reduce.tasks.maximum reduce-tasks
-                 :mapred.reduce.max.attempts 12
-                 :mapred.map.max.attempts 20
-                 :mapred.job.reuse.jvm.num.tasks 20
-                 :mapred.map.tasks.speculative.execution false
-                 :mapred.reduce.tasks.speculative.execution false
-                 :mapred.output.direct.NativeS3FileSystem true
-                 :mapred.child.java.opts (str "-Djava.library.path="
-                                              native-path
-                                              " -Xms1024m -Xmx1024m")
-                 :mapred.child.env (str "LD_LIBRARY_PATH="
-                                        lib-path)}})
+  {:mapred.reduce.tasks (int (* reduce-tasks node-count))
+   :mapred.tasktracker.map.tasks.maximum map-tasks
+   :mapred.tasktracker.reduce.tasks.maximum reduce-tasks})
 
 (defn parse-emr-config
   "Takes in a config map of hadoop base props (config file settings)
   and returns a string of hadoop properties for use by the ruby
   elastic-mapreduce script."
   [conf-map]
-  (->> (mapcat conf-map [:mapred-site :hdfs-site])
-       (map (fn [[k v]]
-              (format "-s,%s=%s" (name k) v))) 
+  (->> (map (fn [[k v]]
+              (format "-s,%s=%s" (name k) v)) conf-map) 
        (join ",")       
        (format "\"--core-config-file,%s,%s\"" redd-config-path)))
 
+(defn scriptify-bs-actions
+  "NEED TO FINISH THIS!"
+  [bs-actions]
+  (apply str (for [bsa bs-actions]
+               (str " --bootstrap action " bsa))))
 
 ;;SCRIPT GENERATION
 (defn boot-emr!
@@ -118,8 +108,7 @@
      (elastic-mapreduce --create --alive
                         --name ~name
                         --availability-zone ~zone
-                        --ami-version "2.0.5" ;;not sure if we still
-                        ;;need this
+                        --ami-version "2.0.5" ;;still need?
                         
                         --instance-group master
                         --instance-type ~hw-id
@@ -130,14 +119,14 @@
                         --instance-count ~size
                         ~(if (nil? bid)
                            (if (nil? on-demand)
-                             ;;use default bid price
-                             (str "--bid-price "
+                             (str "--bid-price " ;;dflt price
                                   (default-bid-price type)) 
-                             "")                    ;;use on-demand
-                           (str " --bid-price " bid)) ;;use given price
+                             "")                   ;;use on-demand
+                           (str " --bid-price " bid));;use given pr
                         --enable-debugging
 
-                        --bootstrap-action ;;MAKE THIS INTO A LOOP
+                        ;;REPLACE ALL THIS BS ACTION STUFF
+                        --bootstrap-action 
                         s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive
                         
                         --bootstrap-action
