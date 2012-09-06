@@ -13,6 +13,7 @@ Example use:
     $ lein emr --name "namehere" --type "large" --size 10 --bid 0.2
 
 All options (you can see this with 'lein emr help'):
+    
     Switches:        Defaults:    Description:                                 
     -n, --name       dev          Name of cluster.                      
     -t, --type       high-memory  Type  cluster.                        
