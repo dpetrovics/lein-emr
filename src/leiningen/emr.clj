@@ -75,11 +75,12 @@
   and returns a string of hadoop properties for use by the ruby
   elastic-mapreduce script."
   [conf-map config-file]
-  (->> (map (fn [[k v]]
-              (format "-s,%s=%s" (name k) v)) conf-map) 
-       (join ",")       
-       (format "\"--core-config-file,%s,%s\"" config-file)
-       (str " --args ")))
+  (let [arg-str (->> (map (fn [[k v]]
+                            (format "-s,%s=%s" (name k) v)) conf-map)
+                     (join ","))]
+    (if config-file
+      (format " --args \"--site-config-file,%s,%s\"" config-file arg-str)
+      (format " --args \"%s\"" arg-str))))
 
 (defn scriptify-bootstrap-xml
   "Takes in an xml file of bootstrap actions and generates a string of
@@ -92,7 +93,7 @@
                 (let [args (map :content content)]
                   (if (= config-hadoop-bsa (:script attrs))
                     (parse-emr-config (base-props map-tasks reduce-tasks size)
-                                      (:core-config-file attrs))
+                                      (:site-config-file attrs))
                     (when (seq args)
                       (apply str " --args " 
                              (interpose ", " 
@@ -100,7 +101,7 @@
 
 ;;SCRIPT GENERATION
 (defn boot-emr!
-  [{:keys [name type size zone mappers reducers bid on-demand] :as m}]
+  [{:keys [name type size zone mappers reducers bid on-demand bootstrap] :as m}]
   (let [{:keys [map-tasks reduce-tasks]}
         (calc-maps-reds type mappers reducers)
         hw-id (convert-type type)]
@@ -125,10 +126,11 @@
                            (str " --bid-price " bid)) ;;use given pr
                         --enable-debugging
                         ;;replace below with bs-actions
-                        ~(scriptify-bootstrap-xml "bootstrapactions.xml"
-                                                  map-tasks
-                                                  reduce-tasks
-                                                  size)))))
+                        ~(when bootstrap
+                           (scriptify-bootstrap-xml bootstrap
+                                                    map-tasks
+                                                    reduce-tasks
+                                                    size))))))
 
 ;;VALIDATORS
 (defn size-valid?
@@ -161,12 +163,15 @@
     m))
 
 (defn mappers-reducers-valid?
-  [{:keys [mappers reducers] :as m}]
+  [{:keys [mappers reducers bootstrap] :as m}]
   (cond
    (and (contains? m :mappers) (nil? mappers))
    (add-error m "Invalid mappers option. Please specify a number.")
    (and (contains? m :reducers) (nil? reducers))
    (add-error m "Invalid reducers option. Please specify a number.")
+   (and (or mappers reducers) (nil? bootstrap))
+   (add-error m
+              "You must specify a bootstrap config file with the configure-hadoop bootstrap action to use --mappers or --reducers.")
    :else m))
 
 (defn bid-or-ondemand?
@@ -177,6 +182,18 @@
     (add-error m "You cannot specify --bid and --on-demand. Use on or the other.")
     m))
 
+(defn bootstrap-config-valid?
+  "Checks to make sure the specified bootstrap config file exists and can be parsed."
+  [{:keys [bootstrap] :as m}]
+  (if (and (contains? m :bootstrap) (nil? bootstrap)) ;;user typed -bs
+    ;;but didnt give a file
+    (add-error m "Specify a valid bootstrap config file.")
+    (if (nil? bootstrap)
+      m ;;no bs config file specified, thats ok
+      (try (when (parse bootstrap) m) ;;check to see if the file can
+           ;;be parsed
+         (catch Exception e (add-error m (.getMessage e)))))))
+
 (def hadoop-validator
   (build-validator
 ;;   (just-one? :start :stop :emr :jobtracker-ip)
@@ -184,7 +201,8 @@
    (type-valid?)
    (mappers-reducers-valid?)
    (bid-or-ondemand?)
-   (bidprice-valid?)))
+   (bidprice-valid?)
+   (bootstrap-config-valid?)))
 
 ;;PARSING CLI ARGS
 (defn parse-hadoop-args
@@ -223,6 +241,7 @@
                                                               (catch Exception _
                                                                 nil))]
          ["-d" "--on-demand" "Uses on demand-pricing for all nodes."]
+         ["-bs" "--bootstrap" "Bootstrap config file location."]
          ;;         ["--jobtracker-ip" "Print jobtracker IP address?"]
          ;;         ["--start" "Starts the EMR job flow."]
          ;;         ["--stop" "Stops an EMR job flow."]
