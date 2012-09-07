@@ -11,7 +11,7 @@ Put `[lein-emr "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your project.clj
 
 Example use:
 
-    $ lein emr --name "namehere" --type "large" --size 10 --bid 0.2
+    $ lein emr --name "namehere" --type "large" --size 10 --bid 0.2 --bootstrap bsconfigfile.xml
 
 All options (you can see this with 'lein emr help'):
     
@@ -23,10 +23,30 @@ All options (you can see this with 'lein emr help'):
     -m, --mappers                 Specifies number of mappers.          
     -r, --reducers                Specifies number of reducers.         
     -b, --bid                     Specifies a bid price.                
-    -d, --on-demand               Uses on demand-pricing for all nodes. 
+    -d, --on-demand               Uses on demand-pricing for all nodes.
+    -bs, --bootstrap              Bootstrap config file location.  
  
- TO DO:
- Describe where to put config file with bootstrap actions!!
+All of your bootstrap actions should be in an xml config file. Just pass the location of that file to lein emr via -bs 
+or --bootstrap. Heres an example config file:
+
+    <bootstrapactions>
+    <action script="s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive">
+    </action>
+    <action script="s3://elasticmapreduce/bootstrap-actions/add-swap">
+        <arg>2048</arg>
+    </action>
+    <action script="s3://elasticmapreduce/bootstrap-actions/configure-hadoop"
+         site-config-file="s3://myawsbucket/bootstrap-actions/config.xml">
+    </action>
+    <action script="s3://myawsbucket/bootstrap-actions/custom_bootstrap.sh">
+    </action>
+    </bootstrapactions>
+
+You can read more about Amazon Bootstrap Actions on their 
+[Developer Guide](http://docs.amazonwebservices.com/ElasticMapReduce/latest/DeveloperGuide/Bootstrap.html). You can 
+specify up to 16 bootstrap actions (with arguments for each) in your config file. The 'configure-hadoop' bootstrap 
+action has a special argument, the site config file, which should be specified as an attribute rather than an arg 
+in the xml.
 
 ## Install Amazon's Elastic MapReduce Client
 Go to the [Elastic MapReduce client page](http://aws.amazon.com/code/Elastic-MapReduce/2264) and download the script. 
