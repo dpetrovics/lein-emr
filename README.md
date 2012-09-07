@@ -12,7 +12,7 @@ elastic-mapreduce script, otherwise this plugin will not work. See below for ins
 
 Example use:
 
-    $ lein emr -n "namehere" -t "large" -s 10 -b 0.2 -bs bsconfig.xml
+    $ lein emr -n "namehere" -t "large" -s 10 -b 0.2 -bs bsaconfig.xml
 
 All options (you can see this with 'lein emr help'):
     
