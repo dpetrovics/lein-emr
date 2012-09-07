@@ -11,7 +11,7 @@ Put `[lein-emr "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your project.clj
 
 Example use:
 
-    $ lein emr --name "namehere" --type "large" --size 10 --bid 0.2 --bootstrap bsconfigfile.xml
+    $ lein emr -n "namehere" -t "large" -s 10 -b 0.2 -bs bsconfig.xml
 
 All options (you can see this with 'lein emr help'):
     
@@ -47,6 +47,21 @@ You can read more about Amazon Bootstrap Actions on their
 specify up to 16 bootstrap actions (with arguments for each) in your config file. The 'configure-hadoop' bootstrap 
 action has a special argument, the site config file, which should be specified as an attribute rather than an arg 
 in the xml.
+
+## Sensible Defaults
+
+If you do not specify 'on-demand' or provide a bid price, then it will default to sensible bid prices so that you may 
+still get the current spot price on your core nodes.
+
+Default Bid Prices
+    * Large: 0.32
+    * Cluster-Compute: 1.30
+    * High-Memory: 1.80
+
+Mappers / Reducers
+    * Large: (4 max map tasks, 2 max reduce taks)
+    * High-Memory: (30 max map tasks, 24 max reduce tasks)
+    * Cluster-Compute: (22 max map tasks, 16 max reduce tasks)
 
 ## Install Amazon's Elastic MapReduce Client
 Go to the [Elastic MapReduce client page](http://aws.amazon.com/code/Elastic-MapReduce/2264) and download the script. 
