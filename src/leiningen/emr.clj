@@ -1,5 +1,6 @@
 (ns leiningen.emr
   (:use clojure.tools.cli
+        clojure.xml
         [clojure.string :only (join)])
   (:require [pallet.execute :as execute]))
 
@@ -37,18 +38,6 @@
 (def config-hadoop-bsa
   "s3://elasticmapreduce/bootstrap-actions/configure-hadoop")
 
-;;CONFIG STUFF THAT NEEDS TO GO ELSEWHERE
-;;vec of [bs-action-file [args]]
-(def bootstrap-actions
-  [["s3://elasticmapreduce/bootstrap-actions/configurations/latest/memory-intensive"
-    []]
-   ["s3://elasticmapreduce/bootstrap-actions/add-swap"
-    [2048]]
-   ["s3://elasticmapreduce/bootstrap-actions/configure-hadoop"
-    ["s3://reddconfig/bootstrap-actions/config_new.xml"]] ;; CONFIG
-   ;; FILE MUST BE FIRST ARG!
-   ["s3://reddconfig/bootstrap-actions/forma_bootstrap_robin.sh"
-    []]])
 
 ;;SENSIBLE DEFAULTS
 (def default-bid-price
@@ -76,7 +65,7 @@
    (= type "cluster-compute") "cc1.4xlarge"))
 
 (defn base-props
-  [reduce-tasks map-tasks node-count]
+  [map-tasks reduce-tasks node-count]
   {:mapred.reduce.tasks (int (* reduce-tasks node-count))
    :mapred.tasktracker.map.tasks.maximum map-tasks
    :mapred.tasktracker.reduce.tasks.maximum reduce-tasks})
@@ -89,26 +78,29 @@
   (->> (map (fn [[k v]]
               (format "-s,%s=%s" (name k) v)) conf-map) 
        (join ",")       
-       (format "\"--core-config-file,%s,%s\"" config-file)))
+       (format "\"--core-config-file,%s,%s\"" config-file)
+       (str " --args ")))
 
-(defn scriptify-bs-actions
-  "Generates the bootstrap action options for the elastic-mapreduce
-  script. Takes in bootsrap actions which should be collection of
-  [bsaname [args]], number of mappers, reducers, and number of nodes."
-  [bs-actions map-tasks reduce-tasks size]
+(defn scriptify-bootstrap-xml
+  "Takes in an xml file of bootstrap actions and generates a string of
+  options for the elastic-mapreduce script."
+  [file map-tasks reduce-tasks size]
   (apply str
-         (for [[bsa args] bs-actions]
-           (str " --bootstrap-action " bsa
-                (when (not (empty? args))
-                  (str " --args "
-                       (if (= config-hadoop-bsa bsa)
-                         (parse-emr-config (base-props map-tasks reduce-tasks size)
-                                           (first args)) ;;always first?
-                         (apply str (interpose " " (map str args))))))))))
+         (for [{:keys [attrs content]}
+               (:content (parse file))]
+           (str " --bootstrap-action " (:script attrs)
+                (let [args (map :content content)]
+                  (if (= config-hadoop-bsa (:script attrs))
+                    (parse-emr-config (base-props map-tasks reduce-tasks size)
+                                      (:core-config-file attrs))
+                    (when (seq args)
+                      (apply str " --args " 
+                             (interpose ", " 
+                                        (apply concat args))))))))))
 
 ;;SCRIPT GENERATION
 (defn boot-emr!
-  [{:keys [name type size zone mappers reducers bid on-demand bs-actions] :as m}]
+  [{:keys [name type size zone mappers reducers bid on-demand] :as m}]
   (let [{:keys [map-tasks reduce-tasks]}
         (calc-maps-reds type mappers reducers)
         hw-id (convert-type type)]
@@ -133,11 +125,10 @@
                            (str " --bid-price " bid)) ;;use given pr
                         --enable-debugging
                         ;;replace below with bs-actions
-                        ~(when bootstrap-actions
-                           (scriptify-bs-actions bootstrap-actions
-                                                 map-tasks
-                                                 reduce-tasks
-                                                 size))))))
+                        ~(scriptify-bootstrap-xml "bootstrapactions.xml"
+                                                  map-tasks
+                                                  reduce-tasks
+                                                  size)))))
 
 ;;VALIDATORS
 (defn size-valid?
@@ -234,8 +225,7 @@
          ["-d" "--on-demand" "Uses on demand-pricing for all nodes."]
          ;;         ["--jobtracker-ip" "Print jobtracker IP address?"]
          ;;         ["--start" "Starts the EMR job flow."]
-         ;;         ["--emr" "Boots an EMR cluster."]
-         ;;         ["--stop" "Kills a pallet cluster."]
+         ;;         ["--stop" "Stops an EMR job flow."]
          )
     (catch Exception e (do (println (.getMessage e))
                            nil))))
