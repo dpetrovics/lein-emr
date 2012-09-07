@@ -54,14 +54,16 @@ If you do not specify 'on-demand' or provide a bid price, then it will default t
 still get the current spot price on your core nodes.
 
 Default Bid Prices
-    * Large: 0.32
-    * Cluster-Compute: 1.30
-    * High-Memory: 1.80
+
+* Large: 0.32
+* Cluster-Compute: 1.30
+* High-Memory: 1.80
 
 Mappers / Reducers
-    * Large: (4 max map tasks, 2 max reduce taks)
-    * High-Memory: (30 max map tasks, 24 max reduce tasks)
-    * Cluster-Compute: (22 max map tasks, 16 max reduce tasks)
+
+* Large: (4 max map tasks, 2 max reduce taks)
+* High-Memory: (30 max map tasks, 24 max reduce tasks)
+* Cluster-Compute: (22 max map tasks, 16 max reduce tasks)
 
 ## Install Amazon's Elastic MapReduce Client
 Go to the [Elastic MapReduce client page](http://aws.amazon.com/code/Elastic-MapReduce/2264) and download the script. 
