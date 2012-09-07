@@ -70,10 +70,11 @@
    :mapred.tasktracker.map.tasks.maximum map-tasks
    :mapred.tasktracker.reduce.tasks.maximum reduce-tasks})
 
-(defn parse-emr-config
-  "Takes in a config map of hadoop base props (config file settings)
-  and returns a string of hadoop properties for use by the ruby
-  elastic-mapreduce script."
+(defn parse-config-hadoop
+  "Takes in a config map of hadoop props (config file settings) and
+  returns a string of hadoop properties for use by the ruby
+  elastic-mapreduce script. You do not have to specify a site config
+  file."
   [conf-map config-file]
   (let [arg-str (->> (map (fn [[k v]]
                             (format "-s,%s=%s" (name k) v)) conf-map)
@@ -92,7 +93,7 @@
            (str " --bootstrap-action " (:script attrs)
                 (let [args (map :content content)]
                   (if (= config-hadoop-bsa (:script attrs))
-                    (parse-emr-config (base-props map-tasks reduce-tasks size)
+                    (parse-config-hadoop (base-props map-tasks reduce-tasks size)
                                       (:site-config-file attrs))
                     (when (seq args)
                       (apply str " --args " 
