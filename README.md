@@ -7,7 +7,8 @@ jobflow extremely easy.
 
 ## Usage
 
-Put `[lein-emr "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your project.clj.
+Put `[lein-emr "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your project.clj. You MUST download and install Amazon's 
+elastic-mapreduce script, otherwise this plugin will not work. See below for instructions.
 
 Example use:
 
