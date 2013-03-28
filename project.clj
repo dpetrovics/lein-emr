@@ -1,4 +1,4 @@
-(defproject lein-emr "0.1.0-SNAPSHOT"
+(defproject lein-emr "0.2.0-SNAPSHOT"
   :description "Wrapper over AWS elastic-mapreduce ruby client. Used
   as a lein plugin to create job flows using Amazon Elastic
   MapReduce."
