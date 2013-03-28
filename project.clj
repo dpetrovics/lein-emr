@@ -5,8 +5,7 @@
   :url "https://github.com/dpetrovics/lein-emr"
   :repositories {"sonatype"
                  "http://oss.sonatype.org/content/repositories/releases"}
-  :dependencies [[org.cloudhoist/pallet "0.7.2"]
-                 [org.clojure/tools.cli "0.2.2"]]
+  :dependencies [[org.clojure/tools.cli "0.2.2"]]
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :eval-in-leiningen true)

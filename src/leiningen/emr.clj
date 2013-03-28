@@ -1,8 +1,8 @@
 (ns leiningen.emr
   (:use clojure.tools.cli
         clojure.xml
-        [clojure.string :only (join)])
-  (:require [pallet.execute :as execute]))
+        [clojure.java.shell :only (sh)]
+        [clojure.string :only (join)]))
 
 ;;HELPER FUNCTIONS
 (defn has [n xs]
@@ -94,44 +94,33 @@
                 (let [args (map :content content)]
                   (if (= config-hadoop-bsa (:script attrs))
                     (parse-config-hadoop (base-props map-tasks reduce-tasks size)
-                                      (:site-config-file attrs))
+                                         (:site-config-file attrs))
                     (when (seq args)
-                      (apply str " --args " 
-                             (interpose ", " 
+                      (apply str " --args "
+                             (interpose ", "
                                         (apply concat args))))))))))
 
 ;;SCRIPT GENERATION
 (defn boot-emr!
-  [{:keys [name type size zone mappers reducers bid on-demand bootstrap] :as m}]
+  [{:keys [name type size zone mappers reducers bid on-demand bootstrap ami-version]
+    :or {ami-version "2.0.5"}
+    :as m}]
   (let [{:keys [map-tasks reduce-tasks]}
         (calc-maps-reds type mappers reducers)
-        hw-id (convert-type type)]
-    (execute/local-script
-     (elastic-mapreduce --create --alive
-                        --name ~name
-                        --availability-zone ~zone
-                        --ami-version "2.0.5" ;;still need?
-                        
-                        --instance-group master
-                        --instance-type ~hw-id
-                        --instance-count 1 
-                        
-                        --instance-group core
-                        --instance-type ~hw-id
-                        --instance-count ~size
-                        ~(if (nil? bid)
-                           (if (nil? on-demand)
-                             (str "--bid-price " ;;dflt price
-                                  (default-bid-price type)) 
-                             "")                      ;;use on-demand
-                           (str " --bid-price " bid)) ;;use given pr
-                        --enable-debugging
-                        ;;replace below with bs-actions
-                        ~(when bootstrap
-                           (scriptify-bootstrap-xml bootstrap
-                                                    map-tasks
-                                                    reduce-tasks
-                                                    size))))))
+        hw-id (convert-type type)
+        bid-str (if (nil? bid)
+                  (if (nil? on-demand)
+                    (str "--bid-price " (default-bid-price type))
+                    "")
+                  (str " --bid-price " bid))
+        bootstrap-str   (if bootstrap
+                          (scriptify-bootstrap-xml bootstrap map-tasks reduce-tasks size)
+                          "")]
+    (->> #"\s"
+         (clojure.string/split (format "elastic-mapreduce --create --alive --name %s --availability-zone %s --ami-version %s --instance-group master --instance-type %s --instance-count 1 --instance-group core --instance-type %s --instance-count %d --enable-debugging %s %s" name, zone, ami-version, hw-id, hw-id, size, bid-str, bootstrap-str))
+         (apply sh)
+         (:out)
+         (println))))
 
 ;;VALIDATORS
 (defn size-valid?
@@ -226,13 +215,13 @@
          ["-s" "--size" "Size of cluster." :parse-fn #(try
                                                         (Long. %)
                                                         (catch Exception _
-                                                          nil))]  
+                                                          nil))]
          ["-z" "--zone" "Specifies an availability zone."
           :default "us-east-1d"]
          ["-m" "--mappers" "Specifies number of mappers." :parse-fn #(try
                                                                        (Long. %)
                                                                        (catch Exception _
-                                                                         nil))] 
+                                                                         nil))]
          ["-r" "--reducers" "Specifies number of reducers." :parse-fn #(try
                                                                          (Long. %)
                                                                          (catch Exception _
