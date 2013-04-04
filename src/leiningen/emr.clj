@@ -80,25 +80,26 @@
                             (format "-s,%s=%s" (name k) v)) conf-map)
                      (join ","))]
     (if config-file
-      (format " --args \"--site-config-file,%s,%s\"" config-file arg-str)
+      (format " --args --site-config-file,%s,%s" config-file arg-str)
       (format " --args \"%s\"" arg-str))))
 
 (defn scriptify-bootstrap-xml
   "Takes in an xml file of bootstrap actions and generates a string of
   options for the elastic-mapreduce script."
   [file map-tasks reduce-tasks size]
-  (apply str
-         (for [{:keys [attrs content]}
-               (:content (parse file))]
-           (str " --bootstrap-action " (:script attrs)
-                (let [args (map :content content)]
-                  (if (= config-hadoop-bsa (:script attrs))
-                    (parse-config-hadoop (base-props map-tasks reduce-tasks size)
-                                         (:site-config-file attrs))
-                    (when (seq args)
-                      (apply str " --args "
-                             (interpose ", "
-                                        (apply concat args))))))))))
+  (clojure.string/trim
+   (apply str
+          (for [{:keys [attrs content]}
+                (:content (parse file))]
+            (str " --bootstrap-action " (:script attrs)
+                 (let [args (map :content content)]
+                   (if (= config-hadoop-bsa (:script attrs))
+                     (parse-config-hadoop (base-props map-tasks reduce-tasks size)
+                                          (:site-config-file attrs))
+                     (when (seq args)
+                       (apply str " --args "
+                              (interpose ", "
+                                         (apply concat args)))))))))))
 
 ;;SCRIPT GENERATION
 (defn boot-emr!
