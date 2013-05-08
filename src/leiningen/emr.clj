@@ -129,7 +129,7 @@
   they're accompanied by a valid size. If this passes, the function acts as
   identity, else an error is added to the map."
   [{:keys [size] :as m}]
-  (if (nil? size)
+  (if (or (nil? size) (= size -1))
     (add-error m "Please provide a valid cluster size.")
     m))
 
@@ -138,7 +138,7 @@
   arg map, they're accompanied by a valid bid-price. If this passes,
   the function acts as identity, else an error is added to the map."
   [{:keys [bid] :as m}]
-  (if (and (contains? m :bid) (nil? bid))
+  (if (and (contains? m :bid) (= bid -1))
     (add-error m "Please provide a valid bid price (must be a number).")
     m))
 
@@ -147,6 +147,7 @@
   the function acts as identity, else an error is added to the map."
   [{:keys [type] :as m}]
   (if (or (nil? type)
+          (= type -1)
           (not (or (= type "large")
                    (= type "high-memory")
                    (= type "cluster-compute"))))
@@ -156,9 +157,9 @@
 (defn mappers-reducers-valid?
   [{:keys [mappers reducers bootstrap] :as m}]
   (cond
-   (and (contains? m :mappers) (nil? mappers))
+   (and (contains? m :mappers) (= mappers -1))
    (add-error m "Invalid mappers option. Please specify a number.")
-   (and (contains? m :reducers) (nil? reducers))
+   (and (contains? m :reducers) (= reducers -1))
    (add-error m "Invalid reducers option. Please specify a number.")
    (and (or mappers reducers) (nil? bootstrap))
    (add-error m
@@ -168,9 +169,9 @@
 (defn bid-or-ondemand?
   "Checks to make sure the user didn't specify --ondemand and a --bid."
   [{:keys [on-demand bid] :as m}]
-  (if (and (not (nil? on-demand))
-           (not (nil? bid)))
-    (add-error m "You cannot specify --bid and --on-demand. Use on or the other.")
+  (if (and (seq on-demand)
+           (seq bid))
+    (add-error m "You cannot specify --bid and --on-demand. Use one or the other.")
     m))
 
 (defn bootstrap-config-valid?
@@ -183,17 +184,31 @@
       m ;;no bs config file specified, thats ok
       (try (when (parse bootstrap) m) ;;check to see if the file can
            ;;be parsed
-         (catch Exception e (add-error m (.getMessage e)))))))
+           (catch Exception e (add-error m (.getMessage e)))))))
 
 (def hadoop-validator
   (build-validator
-;;   (just-one? :start :stop :emr :jobtracker-ip)
+   ;;   (just-one? :start :stop :emr :jobtracker-ip)
    (size-valid?)
    (type-valid?)
    (mappers-reducers-valid?)
    (bid-or-ondemand?)
    (bidprice-valid?)
    (bootstrap-config-valid?)))
+
+(defn str-to-long
+  [s]
+  (try
+    (Long. s)
+    (catch Exception _
+      -1)))
+
+(defn str-to-float
+  [s]
+  (try
+    (Float. s)
+    (catch Exception _
+      -1)))
 
 ;;PARSING CLI ARGS
 (defn parse-hadoop-args
@@ -213,24 +228,12 @@
     (cli args
          ["-n" "--name" "Name of cluster." :default "dev"]
          ["-t" "--type" "Type  cluster." :default "high-memory"]
-         ["-s" "--size" "Size of cluster." :parse-fn #(try
-                                                        (Long. %)
-                                                        (catch Exception _
-                                                          nil))]
+         ["-s" "--size" "Size of cluster." :parse-fn str-to-long]
          ["-z" "--zone" "Specifies an availability zone."
           :default "us-east-1d"]
-         ["-m" "--mappers" "Specifies number of mappers." :parse-fn #(try
-                                                                       (Long. %)
-                                                                       (catch Exception _
-                                                                         nil))]
-         ["-r" "--reducers" "Specifies number of reducers." :parse-fn #(try
-                                                                         (Long. %)
-                                                                         (catch Exception _
-                                                                           nil))]
-         ["-b"  "--bid" "Specifies a bid price." :parse-fn #(try
-                                                              (Float. %)
-                                                              (catch Exception _
-                                                                nil))]
+         ["-m" "--mappers" "Specifies number of mappers." :parse-fn str-to-long]
+         ["-r" "--reducers" "Specifies number of reducers." :parse-fn str-to-long]
+         ["-b"  "--bid" "Specifies a bid price." :parse-fn str-to-float]
          ["-d" "--on-demand" "Uses on demand-pricing for all nodes."]
          ["-bs" "--bootstrap" "Bootstrap config file location."]
          ;;         ["--jobtracker-ip" "Print jobtracker IP address?"]
